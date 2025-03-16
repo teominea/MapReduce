@@ -1,0 +1,60 @@
+Minea Teodora-Maria, 331CB, Tema 1a - APD
+
+Pentru a rezolva tema am folosit 3 tipuri de structuri de baza:
+	- Structura Mapper -  contine informatii despre:
+			- numele fisierelor pe care thread-ul mapper trebuie sa le deschida
+			- id-urile fisierelor respective
+			- vectorul perechi de cuvinte {cuvant, id_fisier}
+			- mutexul pentru sincronizarea scrierii in vectorul de cuvinte
+			- bariera pentru sincronizarea thread-urilor mapper si reducer
+	- Structura Reducer - contine informatii despre:
+			- vectorul cu literele asignate reducerului (pentru care trebuie create fisierele)
+			- vectorul de cuvinte pe care trebuie sa il parcurga reducerul (acelasi pe care il creeaza mapper)
+			- bariera pentru sincronizarea thread-urilor mapper si reducer
+	- Structura MapReduce - contine informatii despre:
+			- natura thread-ului retinuta in booleanul is_mapper
+			- id-ul threadului
+			- structura de tip Mapper
+			- structura de tip Reducer
+
+In functia main:
+
+	- am declarat si initializat bariera si mutexul, precum si vectorii de mapper, reducer si mapreduce
+	- am deschis fisierul oferit ca argument in linia de comanda si am salvat numele fisierelor intr-un vector, apoi am inchis fisierul
+	- am inceput sa adaug informatii in fiecare mapper din vectorul de mapperi
+	- am impartit numarul de fisiere la numarul de mapperi cat mai echitabil, folosind modulo no_of_mappers
+	- am adaugat apoi la fiecare mapper adresa mutexului si barierei pentru sincronizare, dar si vectorul de cuvinte care va fi populat in urma efectuarii functiilor
+	- am inceput sa adaug informatii in fiecare reducer din vectorul de reduceri
+	- am impartit literele alfabetului la reduceri cat mai echitabil, folosind modulo no_of_reducers
+	- am adaugat apoi la fiecare reducer adresa mutexului si barierei pentru sincronizare, dar si vectorul de cuvinte
+	- pentru a efectua un singur apel al functiilor create si join, am creat inca un vector "all_threads" care contine informatii despre toate threadurile pe care le lansam
+	- am parcurs vectorii de mapperi si reduceri si am adaugat in all_threads informatiile necesare: daca este mapper sau nu, respectiv mapper-ul sau reducer-ul aferent
+	- am creat apoi M + R thread-uri pentru care am apelat functia pthread_create, cu elementul curent din vectorul all_threads si functia compute_threads
+	- am asteptat apoi finalizarea tuturor thread-urilor si am eliberat memoria pentru bariera
+
+In functia compute_threads:
+	
+	- am facut cast argumentului de tip void* la tipul MapReduce
+	- am verificat daca is_mapper este adevarat, iar daca da, am apelat functia mapper
+	- in caz contrar, am apelat functia reducer
+
+In functia mapper:
+
+	- am facut cast argumentului de tip void* la tipul Mapper
+	- am parcurs lista cu numele fisierelor, si am deschis cate un fisier pe rand
+	- am blocat mutexul pentru a avea siguranta ca scrierea in vectorul words este facuta doar de catre thread-ul curent
+	- am procesat fiecare linie a fisierului si am prelucrat fiecare cuvant in felul urmator:
+		- incepem cu un string vid, la care adaugam cate un caracter (trecut in lowercase), in cazul in care acesta este litera
+		- cand intampinam un spatiu sau un caracter newline, adaugam perechea {cuvant, id_fisier} in vectorul words
+	- am deblocat mutexul
+	- am pus thread-ul curent sa astepte la bariera, iar cand toate thread-urile (inclusiv cele reducer) ajung la bariera, vor continua executia
+
+In functia reducer:
+
+	- am facut cast argumentului de tip void* la tipul Reducer'
+	- am pus thread-ul curent sa astepte la bariera
+	- am parcurs vectorul de litere si am creat cate un map de tipul {string, [ordered_set]} pentru fiecare litera
+	- am parcurs vectorul words, iar pentru fiecare cuvant care incepea cu litera curenta, adaugam in set id-ul fisierului corespunzator
+	- dupa ce am populat map-ul cu toate cuvintele care incep cu litera curenta, l-am copiat intr-un vector pe care l-am sortat descrescator dupa dimensiunea setului si alfabetic
+	- am deschis fisierul "litera".txt si am scris informatiile in formatul specificat, iar apoi l-am inchis
+
